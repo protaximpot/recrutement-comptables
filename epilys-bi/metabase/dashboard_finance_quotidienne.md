@@ -2,12 +2,13 @@
 
 **Spec de dashboard préparée par CHAT — à construire par CODE sur le VPS (`:3003`).**
 
-## Décision : créer un **#15**, ne pas surcharger #14
+## Décision (clarifiée avec Yahia 2026-06-01)
 
-- `#13` = opérationnel (Access) — **ne pas toucher**.
-- `#14` = finance « 3 Z » actuel — **on le garde tel quel** comme contrôle.
-- `#15` = **nouveau**, branché sur la vue `epilys_bi.v_finance_journee_calculee`, avec **statut de fiabilité** + filtres. C'est plus propre que de réécrire #14 (rollback indépendant, pas de régression sur l'existant).
+- `#13` = opérationnel Power-BI (façade `epilys_bi.mv_fact_tx`) — **NE PAS TOUCHER**.
+- `#14` = **zone FINANCE OFFICIELLE confirmée par Z**. On le garde, c'est la référence "dollars certifiés". CODE doit d'abord **confirmer que #14 existe bien** (ce thread ne le voit pas côté CHAT) et ne rien y casser ; au plus y ajouter un bandeau "OFFICIEL — confirmé Z".
+- `#15` = **nouveau cockpit interactif** branché sur `epilys_bi.v_finance_journee_calculee` **+** `epilys_bi.v_finance_variation` : statut de fiabilité, filtres Power-BI, **et la couche VARIATION/COMPARAISON** (période courante vs précédente, Z↔Z, variation CA $, profit $, marge %, panier, taxes, paiements).
 - Collection : `EPILYS OBRIEN` (id 8, comme #14).
+- ⚠️ `epilys_bi` **préexiste** (contient `mv_fact_tx`) → `CREATE SCHEMA IF NOT EXISTS` est inoffensif, mais **ne jamais** `DROP SCHEMA … CASCADE`.
 
 ## Garde-fous (obligatoires)
 
@@ -147,6 +148,77 @@ ORDER BY date_jour DESC;
 > - Access ≠ Z (~10 % d'écart quantité sur jours témoins) → estimations à calibrer.
 > - `obrien_vente_article` : **source à auditer** (cf. couverture 65,5 % non confirmée).
 > - Rapprochement Z↔GL : écart de 1–2 $ = arrondissement caisse (normal).
+
+---
+
+## Couche VARIATION / COMPARAISON (cartes 13-18) — le « pas une photo figée »
+
+> Source : `epilys_bi.v_finance_variation` (lit uniquement les journées Z → **100 % officiel, aucun estimé**).
+> Filtres `{{periode}}` / `{{magasin}}` applicables.
+
+### 13. Variation vs journée Z précédente — *table (KPI deltas)*
+```sql
+SELECT date_jour, ca_z_officiel,
+       var_ca_dollars, var_ca_pct,
+       var_profit_dollars, var_profit_pct,
+       var_marge_points,
+       var_panier_dollars, var_panier_pct,
+       var_taxes_dollars, var_taxes_pct,
+       tendance_ca
+FROM epilys_bi.v_finance_variation
+WHERE 1=1 [[ AND {{periode}} ]] [[ AND magasin = {{magasin}} ]]
+ORDER BY date_jour DESC;
+```
+*Sammy : écart en **dollars ET en %** d'une journée Z à la précédente. Vert = hausse, rouge = baisse. Tout est confirmé Z.*
+
+### 14. Comparer 2 rapports Z (période A vs période B) — *scalaires côte à côte*
+```sql
+-- Carte A : SUM(...) WHERE {{periode_a}}   |   Carte B : SUM(...) WHERE {{periode_b}}
+SELECT SUM(ca_z_officiel) AS ca, SUM(profit_z) AS profit,
+       SUM(tps_z+tvq_z) AS taxes, SUM(total_ttc_z) AS ttc
+FROM epilys_bi.v_finance_journee_calculee
+WHERE statut_fiabilite='CONFIRME_BEST' [[ AND {{periode_a}} ]] [[ AND magasin = {{magasin}} ]];
+```
+*Sammy : choisis 2 périodes (ex. 01-01 vs 02-01). L'écart $ et % se lit entre les 2 cartes. Comparaison entre journées Z disponibles.*
+
+### 15. Variation CA $ dans le temps — *waterfall / bar signé*
+```sql
+SELECT date_jour, var_ca_dollars
+FROM epilys_bi.v_finance_variation
+WHERE 1=1 [[ AND {{periode}} ]] [[ AND magasin = {{magasin}} ]]
+ORDER BY date_jour;
+```
+*Sammy : combien de dollars de CA gagnés/perdus par rapport à la journée Z d'avant.*
+
+### 16. Variation profit $ & marge (points) — *bar*
+```sql
+SELECT date_jour, var_profit_dollars, var_marge_points
+FROM epilys_bi.v_finance_variation
+WHERE 1=1 [[ AND {{periode}} ]] [[ AND magasin = {{magasin}} ]]
+ORDER BY date_jour;
+```
+*Sammy : variation du profit en $ et de la marge en **points de %** (ex. 47,1 % → 48,9 % = +1,8 pt).*
+
+### 17. Variation panier moyen & taxes — *line double axe*
+```sql
+SELECT date_jour, var_panier_dollars, var_panier_pct, var_taxes_dollars, var_taxes_pct
+FROM epilys_bi.v_finance_variation
+WHERE 1=1 [[ AND {{periode}} ]] [[ AND magasin = {{magasin}} ]]
+ORDER BY date_jour;
+```
+*Sammy : le panier moyen monte-t-il ? les taxes collectées suivent-elles le CA ?*
+
+### 18. Variation des modes de paiement (période A vs B) — *bar groupé* *(table source paiement)*
+```sql
+-- 2 requêtes (A et B) groupées par mode, puis comparaison visuelle.
+SELECT mode_paiement, SUM(montant) AS montant
+FROM epilys.obrien_z_paiement
+WHERE 1=1 [[ AND {{periode_a}} ]] [[ AND magasin = {{magasin}} ]]
+GROUP BY mode_paiement ORDER BY montant DESC;
+```
+*Sammy : l'argent comptant baisse-t-il au profit du débit/crédit d'une période à l'autre ? Données Z officielles.*
+
+> **Note variation** : toutes ces cartes ne comparent que des **journées Z confirmées**. Tant qu'il n'y a que 3 Z (01-01, 02-01, 05-06), la profondeur de comparaison est limitée — la couche s'enrichit automatiquement à chaque nouveau Z importé.
 
 ---
 
