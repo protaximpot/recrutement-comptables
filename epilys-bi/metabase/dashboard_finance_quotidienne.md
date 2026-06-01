@@ -222,6 +222,62 @@ GROUP BY mode_paiement ORDER BY montant DESC;
 
 ---
 
+## Cartes d'ANALYSE DYNAMIQUE (exigence Yahia) — une sous CHAQUE carte principale
+
+**But :** Sammy ne voit pas que des chiffres — sous chaque carte clé, une carte-analyse explique **en français simple** : variation vs période précédente ($/% ou points de marge), lecture métier (hausse/baisse/stable), cause probable si dispo, **limite de fiabilité**, **action recommandée**.
+
+> ⚠️ Un bloc *texte* Metabase est **statique**. Pour que l'analyse change avec le filtre de période, chaque carte-analyse est une **question SQL** qui retourne **une seule colonne phrase**, branchée sur les **mêmes filtres** `{{periode}}`/`{{magasin}}` que la carte du dessus. Placement : juste sous la carte mère.
+
+### Patron générique (à dupliquer par métrique)
+```sql
+WITH cur AS (
+  SELECT *
+  FROM epilys_bi.v_finance_variation
+  WHERE 1=1 [[ AND {{periode}} ]] [[ AND magasin = {{magasin}} ]]
+  ORDER BY date_jour DESC
+  LIMIT 1
+)
+SELECT
+  '📅 Journée ' || to_char(date_jour,'YYYY-MM-DD') || E'\n'
+  || '💵 CA officiel : ' || to_char(ca_z_officiel,'FM999G999G990D00') || ' $ (confirmé Z).' || E'\n'
+  || CASE
+       WHEN var_ca_dollars IS NULL
+         THEN '↔ Première journée Z de la sélection — pas de comparaison possible.'
+       ELSE '📊 Variation vs Z précédent (' || to_char(date_z_precedent,'YYYY-MM-DD') || ') : '
+            || CASE WHEN var_ca_dollars >= 0 THEN '+' ELSE '' END || to_char(var_ca_dollars,'FM999G990D00') || ' $ ('
+            || CASE WHEN var_ca_pct      >= 0 THEN '+' ELSE '' END || to_char(var_ca_pct,'FM990D0') || ' %). '
+            || CASE tendance_ca WHEN 'HAUSSE' THEN '↑ Hausse.' WHEN 'BAISSE' THEN '↓ Baisse.' ELSE '→ Stable.' END
+     END || E'\n'
+  || '✅ Fiabilité : dollars officiels (rapport Z), fiscal OK.' || E'\n'
+  || '🎯 Action : ' || CASE
+       WHEN var_ca_pct IS NULL      THEN 'attendre un 2e Z pour juger la tendance.'
+       WHEN var_ca_pct < -10        THEN 'baisse marquée — vérifier achalandage / jour de semaine / fermeture partielle.'
+       WHEN var_ca_pct >  10        THEN 'hausse marquée — confirmer la cause (promo, affluence) et la pérenniser.'
+       ELSE 'évolution normale — surveiller la tendance sur les prochains Z.'
+     END AS analyse
+FROM cur;
+```
+
+### Adaptation par métrique (mêmes 5 blocs : valeur · variation · lecture · fiabilité · action)
+| Métrique (carte mère) | Colonne valeur | Colonnes variation (`v_finance_variation`) | Spécificité d'action |
+|---|---|---|---|
+| **CA** | `ca_z_officiel` | `var_ca_dollars`, `var_ca_pct` | cf. patron |
+| **Total TTC** | `total_ttc_z` | (recalcul vs TTC précédent) | doit bouger comme le CA + taxes |
+| **TPS/TVQ** | `tps_z`,`tvq_z`,`taxes_z` | `var_taxes_dollars`, `var_taxes_pct` | taxes doivent suivre le CA ; écart anormal = vérifier exonérés |
+| **Profit** | `profit_z` | `var_profit_dollars`, `var_profit_pct` | profit qui baisse + CA stable = coûts/démarque |
+| **Marge** | `marge_z_pct` | `var_marge_points` | exprimer en **points** (ex. +1,8 pt) ; chute = revoir prix/pertes |
+| **Panier moyen** | `panier_moyen_z` | `var_panier_dollars`, `var_panier_pct` | panier ↓ + factures ↑ = plus de petits paniers |
+| **Factures (nb)** | `nb_factures_z` | (vs nb précédent) | proxy achalandage |
+| **Paiements** | (table `obrien_z_paiement`) | comparer modes A vs B | comptant ↓ vs débit/crédit ↑ = tendance dématérialisation |
+| **Départements** | (table `obrien_z_departement`) | top hausses/baisses CA par dept | pointer le dept qui tire/plombe |
+| **Écart Z vs GL** | `ecart_gl_z` | — | 1–2 $ = arrondissement (normal) ; au-delà = à investiguer |
+| **Couverture vente article** | (après audit étape 0) | — | n'afficher que si source tranchée ; sinon « en validation » |
+| **Statut fiabilité** | `statut_fiabilite` | — | rappelle CONFIRME_BEST vs ESTIME_BASE et l'usage permis |
+
+> **Règle fiabilité dans l'analyse** : si la métrique vient d'un jour `ESTIME_BASE`, la phrase **doit** commencer par « ⚠️ Estimation Access — non officiel, pas pour le fiscal » et l'action devient « confirmer avec un rapport Z ». Jamais d'analyse « officielle » sur de l'estimé.
+
+---
+
 ## Rapprochement attendu (sanity check après création)
 
 | Date | CA HT Z | TPS | TVQ | TTC Z | TTC GL | Écart |
