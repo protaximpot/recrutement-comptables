@@ -4,9 +4,10 @@
 
 ## Décision (clarifiée avec Yahia 2026-06-01)
 
-- `#13` = opérationnel Power-BI (façade `epilys_bi.mv_fact_tx`) — **NE PAS TOUCHER**.
-- `#14` = **zone FINANCE OFFICIELLE confirmée par Z**. On le garde, c'est la référence "dollars certifiés". CODE doit d'abord **confirmer que #14 existe bien** (ce thread ne le voit pas côté CHAT) et ne rien y casser ; au plus y ajouter un bandeau "OFFICIEL — confirmé Z".
-- `#15` = **nouveau cockpit interactif** branché sur `epilys_bi.v_finance_journee_calculee` **+** `epilys_bi.v_finance_variation` : statut de fiabilité, filtres Power-BI, **et la couche VARIATION/COMPARAISON** (période courante vs précédente, Z↔Z, variation CA $, profit $, marge %, panier, taxes, paiements).
+- **Faits confirmés (Codex+Yahia, 2026-06-01)** : Metabase `:3003` accessible ; `#14` existe (id=14, « EPILYS — Finance BEST POS », non archivé) ; `#13` existe ; **aucun `#15`** encore.
+- `#13` = opérationnel Power-BI (façade `epilys_bi.mv_fact_tx`) — **NE PAS TOUCHER / ne pas régresser**.
+- `#14` = **zone FINANCE OFFICIELLE confirmée par Z** (déjà créée). On la garde comme référence « dollars certifiés ». **Ne pas l'écraser sans validation Yahia** ; au plus un bandeau « OFFICIEL — confirmé Z ».
+- `#15` = **nouveau cockpit interactif à créer**, branché sur `epilys_bi.v_finance_journee_calculee` **+** `epilys_bi.v_finance_variation` : statut de fiabilité, filtres Power-BI, **couche VARIATION/COMPARAISON** (période courante vs précédente, Z↔Z, variation CA $, profit $, marge %, panier, taxes, paiements) **+ carte-analyse dynamique sous chaque carte principale**.
 - Collection : `EPILYS OBRIEN` (id 8, comme #14).
 - ⚠️ `epilys_bi` **préexiste** (contient `mv_fact_tx`) → `CREATE SCHEMA IF NOT EXISTS` est inoffensif, mais **ne jamais** `DROP SCHEMA … CASCADE`.
 
