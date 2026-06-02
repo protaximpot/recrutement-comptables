@@ -109,4 +109,9 @@ La « porte de sécurité » **refuse automatiquement** une base si :
 
 Tout fichier refusé va en **quarantaine** avec une note expliquant pourquoi — **rien n'est importé ni publié sans ton feu vert**.
 
-👉 Question pour toi : es-tu d'accord avec ces **7 motifs de refus** et le seuil de volume **±50 %** ? Si tu veux ajuster (ex. seuil plus strict), dis-le avant qu'on code.
+👉 **VALIDÉ PAR YAHIA (2026-06-02) :** les 7 motifs de refus/quarantaine sont acceptés, et le seuil de volume **±50 %** est retenu pour le pilote. Règle confirmée : tout fichier douteux → quarantaine, **aucune publication Metabase sans validation Yahia**.
+
+## 7. Artefacts exécutables livrés
+- `sql/import_registry.sql` — schéma `epilys_ops` : table `import_registry`, table `reconciliation_jour`, vue `v_import_dernier`.
+- `porte_securite.py` — implémentation de référence des contrôles G1–G9 (à brancher sur PostgreSQL côté hôte ; éléments schéma marqués `[VERIFIER]`).
+- `tests_minimum_import.md` — les 12 tests d'acceptation (T1–T12) + squelette pytest + données de référence Z.
