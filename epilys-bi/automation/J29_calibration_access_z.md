@@ -108,3 +108,47 @@ LEFT JOIN epilys_ops.v_calibration c USING (magasin);
 - Calibration basée sur **7 Z** seulement (échantillon faible) → confiance MOYENNE.
 - Estimateur **jour-niveau** d'abord ; **par rayon** en phase 2 (nécessite de corriger la jointure article→rayon, cf. trous $0 du 10-fév sur VIANDE/PÂTISSERIE).
 - Chaque nouveauZ **améliore** la calibration et peut faire monter la confiance.
+
+---
+
+## 8. MISE À JOUR (rapports Z MENSUELS reçus, 2026-06-02)
+
+Des **rapports Z mensuels** (couverture complète du mois) sont arrivés → **meilleur étalon** que les Z quotidiens épars. On bascule la calibration sur une base **mensuelle**.
+
+### 8.1 Règles renforcées
+1. **Calibrer sur factures et $, JAMAIS sur la quantité** (la quantité mélange unités + poids kg + consignes — écart prouvé non fiable).
+2. **Porte de couverture** : un mois ne compte comme témoin que s'il couvre **tous les jours d'ouverture**. ⇒ **PIE9 janvier EXCLU** (11 jours Access, 5 648 factures = magasin à peine ouvert).
+3. **Diagnostiquer OBRIEN sur factures/$ d'abord** : sur la quantité, déc = +38 % (Access > Z) ⇒ artefact (poids/consignes/double comptage), pas un manque. Avril −80,5 % avec 29 jours présents = vrai trou (base tronquée ou Z mensuel issu d'une source plus large). Séparer les deux avant tout calcul dollar.
+
+### 8.2 Étalons mensuels PIE9 (panier réel)
+| Mois PIE9 | CA HT Z | Factures | Panier |
+|---|---:|---:|---:|
+| Février | 1 995 971,74 | 27 992 | 71,30 |
+| Mars | 4 142 536,79 | 69 564 | 59,55 |
+| Avril | 3 391 498,75 | 60 757 | 55,82 |
+
+panier_ref mensuel médian PIE9 = **59,55 $** (cohérent avec ~57 $ des 7 Z quotidiens, qui servent de validation supplémentaire).
+
+### 8.3 Seuils mensuels (proposés, à valider Yahia)
+- **nb_mois ≥ 3** pour autoriser un $ estimé (au lieu de nb_Z ≥ 5 quotidien) ; PIE9 = 3 (Fév/Mars/Avr) → juste OK.
+- écart moyen ≤ 10 %, écart max ≤ 20 % (inchangé).
+- **OBRIEN : pas de calibration auto** tant que l'écart avril n'est pas expliqué → statut `ECART_A_VERIFIER`.
+
+### 8.4 Table paiements Z commune (débloque la carte paiements PIE9 de #15)
+```sql
+CREATE TABLE IF NOT EXISTS epilys_ops.z_paiement (
+    magasin     text  NOT NULL,
+    periode     text  NOT NULL,        -- 'YYYY-MM' (mensuel) ou date (si Z quotidien)
+    mode        text  NOT NULL,        -- AMEX/ARGENT/DEBIT/MASTERCARD/VISA/ARRONDISSEMENT
+    montant     numeric(14,2) NOT NULL,
+    source      text  NOT NULL DEFAULT 'Z_MENSUEL',
+    PRIMARY KEY (magasin, periode, mode)
+);
+-- v_z_finance_paiement (#15) doit lire CETTE table (multi-magasin), plus seulement obrien_z_paiement.
+```
+
+### 8.5 Statut mensuel pour le dashboard
+- `OFFICIEL_Z_MENSUEL` quand le mois a un Z (montrer le Z).
+- `ESTIME_ACCESS_CALIBRE` (jour) si magasin/mois respecte les seuils.
+- `ECART_A_VERIFIER` pour OBRIEN avril + tout mois à écart fort.
+- `VOLUME_SEULEMENT` sinon.
