@@ -15,16 +15,20 @@
 
 ---
 
-## ZONE 1 — Contrôle de migration (Access direct vs SQL) — *FIABLE une fois mesurée*
-> But : prouver que la conversion **n'a rien changé**. Test A = comparer le **même** brut des deux côtés. **Tant que ces cases ne sont pas remplies, le verdict est « présumé », pas « mesuré ».**
+## ZONE 1 — Contrôle de migration (Access direct vs SQL) — *MESURÉE ✅*
+> ✅ **MESURÉ par Codex le 2026-06-03** (Test A direct `Transaction.mdb` vs PostgreSQL). Access brut = SQL.
 
-| Magasin | Mois | Lignes `.mdb` brut | Lignes SQL | SUM(montant) `.mdb` | SUM(montant) SQL | Identique ? | Badge |
-|---|---|---:|---:|---:|---:|:--:|---|
-| PIE9 | 2026-03 | _____ | _____ | _____ | _____ | ⬜ | `MIGRATION_VERIFIEE` si = |
-| OBRIEN | 2026-04 | _____ | _____ | _____ | _____ | ⬜ | **cas prioritaire (−80 %)** |
-| … | … | | | | | | |
+| Magasin | Mois | Qté Access brut | Qté SQL | Lignes VE | Identique ? | Badge |
+|---|---|---:|---:|---:|:--:|---|
+| PIE9 | 2026-02 | 588 046,01 | 588 046,01 | 303 878 | ✅ | `MIGRATION_VERIFIEE` |
+| PIE9 | 2026-03 | 1 259 306,04 | 1 259 306,04 | 752 713 | ✅ | `MIGRATION_VERIFIEE` |
+| PIE9 | 2026-04 | 1 132 981,09 | 1 132 981,09 | 650 060 | ✅ | `MIGRATION_VERIFIEE` |
+| OBRIEN | 2026-02 | 763 830,17 | 763 830,17 | 469 866 | ✅ | `MIGRATION_VERIFIEE` |
+| OBRIEN | 2026-03 | 706 879,13 | 706 879,13 | 442 224 | ✅ | `MIGRATION_VERIFIEE` |
+| OBRIEN | 2026-04 | 147 123,46 | 147 123,46 | 92 815 | ✅ | `MIGRATION_VERIFIEE` (source Access elle-même faible → Zone 2) |
 
-**Verdict Zone 1 :** ⬜ migration fidèle (lignes & sommes égales) — _ou_ ⬜ écart de conversion localisé (préciser colonne/lignes).
+**Verdict Zone 1 : ✅ MIGRATION FIDÈLE (MESURÉE).** Access brut = SQL pour PIE9 et OBRIEN → la conversion **n'a pas modifié les volumes**.
+⚠️ Le **$ n'est pas vérifiable ici** : `Transaction.mdb` a **Prix = 0** sur des centaines de milliers de lignes VE (PIE9 mars : 658 457 ; OBRIEN mars : 388 885). Le CA officiel **ne peut pas venir de cette table** (ni Access, ni SQL). ⇒ **L'écart avec le Z est DANS LA SOURCE Access, pas dans la conversion.**
 
 ---
 
@@ -53,7 +57,7 @@
 ## ZONE 3 — Décision (utilisable / estimé / bloqué)
 | Question | Réponse |
 |---|---|
-| SQL a-t-il changé les chiffres Access ? | **Non** *(à confirmer Zone 1 — surtout OBRIEN avril)* |
+| SQL a-t-il changé les chiffres Access ? | **Non — MESURÉ** (Test A, 2026-06-03 : Access brut = SQL, OBRIEN avril inclus) |
 | Volumes SQL fiables ? | **Oui** (PIE9 ; OBRIEN sauf avril) |
 | Dollars SQL Access fiables ? | **Pas encore** (prix=0 sur Access) |
 | Le Z est-il la source officielle des dollars ? | **Oui** |
