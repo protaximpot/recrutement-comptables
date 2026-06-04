@@ -142,16 +142,24 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 | **Achats fournisseurs** | **HORS BEST** (compta/QuickBooks/factures) | — | `A_CHERCHER_HORS_BEST` | ❌ | ✅ | `Commande` vide, `MontantAchete` corrompu |
 | Réception marchandise | Inventaire `DateRecu`+`QteAchete` (cumul, 32 %) | — | `INCOMPLET` | ❌ | ✅ | pas de log transactionnel |
 
-## C. `Transaction Ob.mdb` — ⏳ EN ATTENTE DU SCHÉMA
-*(mouvements/historique long → VOLUMES/TENDANCES uniquement ; prix souvent 0 → jamais pour les $)*
-À documenter : tables, relations, clé article, types de mouvement (vente/retour/réception ?), période couverte.
-**Commande :** `mdb-schema "Transaction Ob.mdb"` + `mdb-tables -1 "Transaction Ob.mdb"` + export `MSysRelationships`.
+## C. `Transaction.mdb` — MOUVEMENTS ✅ SCHÉMA OBTENU (686 Mo)
+*(schéma via Codex/access_parser ; données via mdbtools)*
+
+**UNE seule table `Transaction`** (modèle plat, comme `Day`). Colonnes utiles : `Date`, `Article`, **`Type`** (type de mouvement), `Quantite`, `Prix`, `QteMain` (stock après mouvement), `Employe`, …
+- **Usage = VOLUMES / TENDANCES / HISTORIQUE LONG uniquement.** ⚠️ **`Prix` souvent 0 → JAMAIS pour les dollars** (prouvé J30 : des centaines de milliers de lignes VE à prix 0).
+- **Clé relation** : `Transaction.Article` ↔ `Inventaire.Articles.NoArticle`.
+- **`Type`** = à décoder (vente / retour / réception / ajustement) — c'est la clé pour isoler les mouvements ; à cartographier avant usage.
+- **Volumes déjà mesurés (J30)** : OBRIEN fév 763 830 / mars 706 879 / avril 147 123 (avril Access tronqué) → badge `VOLUME_FIABLE`, à comparer aux quantités Z.
+
+> **Extraction (résout la « priorité Articles ») :** `access_parser` **plante** (overflow) sur `Articles`. **`mdbtools` (`mdb-export`) lit `Articles` proprement** — déjà fait ici : **13 093 lignes, tous les taux mesurés (B.1)**. ⇒ **Pipeline d'extraction = `mdbtools`**, pas access_parser. (Si un `.mdb` est réellement corrompu : Compact & Repair Access, ou export CSV depuis BEST.)
+> *Note versions :* le snapshot Mac de Codex montre 64 tables / Fournisseur 126 lignes ; le fichier analysé ici (uploadé) = 58 tables / Fournisseur 300 — **snapshots à dates différentes**, mêmes structures.
 
 ---
 
-## D. CE QU'IL RESTE À OBTENIR POUR FINIR L'ÉTAPE « COMPRENDRE »
-1. Schéma (texte) de `Transaction.mdb` → compléter C (mdbtools à installer sur le Mac).
-2. Carte des relations (ERD) Inventaire (clés `Articles.NoFournisseur`↔`Fournisseur`, `Articles.Departement`↔`Departement`, `Historique.ArticleID`↔`Articles`).
-3. ✅ Tables ACHATS/RÉCEPTIONS : **résolu** — non utilisées dans BEST (cf. B.5) → source = comptabilité hors BEST.
+## D. ÉTAT DE L'ÉTAPE « COMPRENDRE » (quasi terminée)
+- ✅ **Z/Day** (A) · ✅ **Inventaire** (B) · ✅ **Transaction** schéma (C) · ✅ **Achats** = hors BEST (B.5).
+- **Carte des relations (ERD)** : `Articles.NoFournisseur`↔`Fournisseur` · `Articles.Departement`↔`Departement` · `Historique.ArticleID`↔`Articles` · `Transaction.Article`↔`Articles.NoArticle` · `Day.Departement`↔`Departement`.
+- **Outil d'extraction retenu** : **mdbtools** (`mdb-export`) — fiable sur `Articles` (access_parser overflow).
+- **Reste** : décoder les valeurs `Transaction.Type` (sur données réelles) + extraire `Articles` en prod via mdbtools.
 
 > **Règle d'or maintenue :** chaque chiffre = une source + un badge ; on ne mélange pas officiel, estimé et incomplet ; on ne migre une table qu'après l'avoir comprise.
