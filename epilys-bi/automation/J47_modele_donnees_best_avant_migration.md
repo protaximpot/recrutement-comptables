@@ -97,7 +97,7 @@
 | **Coutant** | **65,5 %** | **coût catalogue** |
 | CoutMoyen | 31,0 % | coût moyen pondéré |
 | **Fournisseur** (nom) | **68,6 %** | fournisseur principal |
-| **QteMain** (stock) | **91,7 %** | stock en main |
+| **QteMain** (stock) | 92 % rempli **mais 84 % NÉGATIF** | stock **NON FIABLE** (réception non saisie → `QteMain ≈ −QteVendu`) |
 | Actif | 99,1 % | actif/inactif |
 | DateVendu | 99,5 % | dernière vente → **dormant** |
 | DateRecu | 32,0 % | dernière réception |
@@ -134,10 +134,10 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 | Coût article | **Inventaire `Articles.Coutant/CoutMoyen`** (66 %) | Z/Day `Coutant` (30-44 %) | `CATALOGUE_À_VALIDER` | ❌ | ✅ | prix catalogue ≠ vendu |
 | Marge | Z/Day `Prix` − Inventaire `Coutant` | — | `À_VALIDER` (coût partiel) | ❌ | ✅ | poids = artefact |
 | Fournisseur (article) | **Inventaire `Articles.Fournisseur`** (69 %) + `Fournisseur` (300) | Z/Day (17-24 %) | `À_VALIDER` | ❌ | ✅ | multi-fournisseur dispo |
-| Stock | **Inventaire `Articles.QteMain`** (92 %) | — | `VOLUME_FIABLE` | ❌ | ✅ | Akram |
+| Stock | Inventaire `Articles.QteMain` | — | `NON_FIABLE` (84 % négatif) | ❌ | ✅ | réception non saisie → inutilisable tel quel |
 | Dormant / actif | Inventaire `Actif` + `DateVendu` | Transaction (0 vente N j) | `VOLUME_FIABLE` | ❌ | ✅ | argent immobilisé |
 | Tendance ventes article | Inventaire `Historique` (Qté/Montant Vendu) | Transaction (volumes) | `VOLUME_FIABLE` | (✅) | ✅ | 202507→202606 |
-| Rotation | Historique ventes ÷ `QteMain` | — | `VOLUME_FIABLE` | ❌ | ✅ | Akram |
+| Rotation | Historique ventes ÷ `QteMain` | — | `À_VALIDER` (stock non fiable) | ❌ | ✅ | dépend d'un stock réel |
 | Mapping comptable (GL) | Inventaire `Departement.GL` | — | utile fiscal | ❌ | ✅ | export compta |
 | **Achats fournisseurs** | **Comptabilité / factures (QuickBooks)** | BEST `Commande` (à valider) | `À_VALIDER` | ❌ | ✅ | `Commande` présente mais quasi vide ; `MontantAchete` corrompu |
 | Réception marchandise | Inventaire `DateRecu`+`QteAchete` (cumul, 32 %) | — | `INCOMPLET` | ❌ | ✅ | pas de log transactionnel |
@@ -160,5 +160,37 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 - **Carte des relations (ERD)** : `Articles.NoFournisseur`↔`Fournisseur` · `Articles.Departement`↔`Departement` · `Historique.ArticleID`↔`Articles` · `Transaction.Article`↔`Articles.NoArticle` · `Day.Departement`↔`Departement`.
 - **Outil d'extraction retenu** : **mdbtools** (`mdb-export`) — fiable sur `Articles` (access_parser overflow).
 - **Reste** : décoder les valeurs `Transaction.Type` (sur données réelles) + extraire `Articles` en prod via mdbtools.
+
+## F. CONTRÔLE QUALITÉ CATALOGUE `Articles` ✅ (mesuré sur 13 093 lignes via mdbtools)
+Extraction : `mdb-export Inventaire.mdb Articles` → `EPILYS_OBRIEN_Articles.csv` (mdbtools fiable ; access_parser plante).
+
+| Contrôle | Nb | % | Lecture |
+|---|--:|--:|---|
+| Coût manquant (`Coutant`&`CoutMoyen`=0) | 4 508 | 34,4 % | marge incalculable sur 1/3 du catalogue |
+| Fournisseur manquant | 4 105 | 31,4 % | fournisseur à compléter sur 1/3 |
+| Département manquant | 3 | 0,0 % | ✅ quasi parfait |
+| Prix vente = 0 | 654 | 5,0 % | à vérifier (articles non tarifés) |
+| **Coût > Prix (marge négative)** | 194 | 1,5 % | erreurs de prix ou produits d'appel → revue |
+| **Stock négatif (`QteMain`<0)** | **11 046** | **84,4 %** | 🔴 **stock NON fiable** (`QteMain ≈ −QteVendu`, réception non saisie) |
+| Articles inactifs | 114 | 0,9 % | à exclure des vues actives |
+| Articles balance/poids | 171 | 1,3 % | marge « aberrante » normale (balances) → isoler |
+
+**Constat structurant :** pas de réception saisie (`Commande` vide) ⇒ **`QteMain ≈ −QteVendu`** ⇒ **stock inexploitable** (84 % négatif + aberrations jusqu'à 878 G). Le stock ne pourra servir qu'après une **vraie gestion des réceptions** (hors BEST actuel).
+
+## G. PLAN DE MIGRATION — table par table, avec badges
+> Règle : migrer **en staging**, badger chaque champ, **rien en prod/Metabase sans Yahia**. Borne anti-aberration partout (QteMain/MontantAchete corrompus).
+
+| Table | Migrer | Champs FIABLES | Champs PARTIELS / À VALIDER | À EXCLURE | Voit |
+|---|:--:|---|---|---|---|
+| **Z/Day** (ou Z officiel parsé) | ✅ couche $ | CA, TTC, TPS, TVQ, paiements, prix, caissier, facture, dept | Coûtant (30-44 %), Fournisseur (17-24 %) | `VD`, CORRECTIONS, aberrants | Sammy+Yahia ($) |
+| **Inventaire.Articles** | ✅ référentiel | NoArticle, Article, Departement (100 %), PrixVente (95 %), Actif | Coutant (66 %), Fournisseur (69 %), DateRecu (32 %) | **QteMain (non fiable)**, CUP1, QteEntrepot | Yahia |
+| **Inventaire.Fournisseur** | ✅ référentiel | Nom, coordonnées, terme | — | TotalAchat/DernierAchat (vides) | Yahia/Akram |
+| **Inventaire.Departement** | ✅ référentiel | Departement, Description, **GL**, NonAdd, taxes | — | — | Yahia (fiscal) |
+| **Inventaire.Historique** | ✅ tendances | QuantiteVendu, MontantVendu, Date | QuantiteAchete | **MontantAchete (corrompu)** | Yahia/Akram |
+| **Inventaire.Commande** | ⏸ non | — | tout (quasi vide) | — | — |
+| **Transaction.Transaction** | ✅ volumes | Date, Article, Type, Quantite, Employe | QteMain dynamique | **Prix (jamais $)**, aberrants | Yahia/Akram |
+| **Achats fournisseurs** | ⛔ hors BEST | — | — | — | (compta/QuickBooks) |
+
+**Gouvernance Sammy/Yahia :** Sammy = ventes/CA/rayons/affluence/saisons ($ officiels) ; **jamais** coûts, marges, fournisseurs, stock. Yahia = tout + fiabilité + contrôle.
 
 > **Règle d'or maintenue :** chaque chiffre = une source + un badge ; on ne mélange pas officiel, estimé et incomplet ; on ne migre une table qu'après l'avoir comprise.
