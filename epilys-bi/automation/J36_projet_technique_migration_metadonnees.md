@@ -126,6 +126,21 @@ KPI | valeur | source_ref | date_donnee | badge_fiabilite | import_id | fichier_
 
 ---
 
+## 5.ter Règle du « jour incomplet » (exclusion par défaut) — ajout 2026-06-04
+
+**Problème :** le jour où la clé USB est apportée / la base est téléchargée est souvent une **journée partielle** (la caisse n'a pas fini de tourner, le Z du jour n'est pas clôturé). L'inclure fausse les totaux et les comparaisons.
+
+**Règle (gouvernance import) :**
+- La **date du jour d'apport/téléchargement de la base est EXCLUE par défaut** du chargement et de l'affichage.
+- Cette date est marquée **`JOUR_INCOMPLET`** (quarantaine logique), distincte d'un rejet : la donnée existe mais **n'est ni agrégée ni publiée** tant que la journée n'est pas confirmée close.
+- Le rapport « actif » s'arrête donc à **J-1 (la veille)**.
+- *Exemple :* base apportée le **2026-06-03** → on charge/affiche **jusqu'au 2026-06-02** ; le **2026-06-03** reste `JOUR_INCOMPLET` jusqu'à confirmation (prochaine base contenant un 03 clôturé, ou validation Yahia).
+
+**Implémentation :** paramètre `date_apport` (déduit du nom de dossier/fichier ou de `date_reception`) → filtre `date_jour < date_apport` à l'extraction ET borne haute des vues BI. Trace dans `import_registry` : `date_max_publiable = date_apport − 1 j`.
+**Réf. exécution :** script Codex `J37_extract_obrien_z_day_summary.py` (extraction OBRIEN Z/Day excluant explicitement la date d'apport) — **à vérifier (CHAT) : nb de jours, dernière date incluse = veille, aucun jour d'apport agrégé.**
+
+---
+
 ## 6. Séparation des deux mondes (rappel — NON négociable)
 
 | | **Cockpit SAMMY** | **Outil technique YAHIA** |
@@ -146,6 +161,7 @@ Gouvernance Metabase : collections séparées + permissions. Sammy ne voit **jam
 - Tout fichier douteux → **quarantaine** + rapport lisible (J28).
 - Original `.mdb` **toujours archivé** avant publication ; jamais ré-écrit.
 - Échelle ×10000 (SCALE) figée par sanity check avant tout agrégat $.
+- **Jour d'apport/téléchargement EXCLU par défaut** (`JOUR_INCOMPLET`) ; les rapports s'arrêtent à la veille (cf. §5.ter).
 
 ---
 
