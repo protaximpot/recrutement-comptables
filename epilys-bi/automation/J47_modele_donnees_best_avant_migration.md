@@ -193,4 +193,6 @@ Extraction : `mdb-export Inventaire.mdb Articles` → `EPILYS_OBRIEN_Articles.cs
 
 **Gouvernance Sammy/Yahia :** Sammy = ventes/CA/rayons/affluence/saisons ($ officiels) ; **jamais** coûts, marges, fournisseurs, stock. Yahia = tout + fiabilité + contrôle.
 
+**Décision Codex/Yahia (validée) :** stock = NON FIABLE → **KPI rupture / surstock / valeur inventaire / rotation stock = BACKLOG** (jusqu'à mise en place/validation des réceptions) ; `QteMain` jamais utilisé comme stock réel. Coût/fournisseur/marge = **Yahia seulement, badge « catalogue à valider »**. Anomalies catalogue exportées : `EPILYS_OBRIEN_Articles_ANOMALIES.csv` (5 191 articles).
+
 > **Règle d'or maintenue :** chaque chiffre = une source + un badge ; on ne mélange pas officiel, estimé et incomplet ; on ne migre une table qu'après l'avoir comprise.
