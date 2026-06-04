@@ -46,6 +46,29 @@ Candidats `.mdb` à inspecter : `Inventaire.mdb`, `Transaction.mdb`, `Tables.mdb
 | **Réception marchandise** | table `Reception` **(à trouver)** | `Transaction` type réception si présent | **inconnue** | `A_CHERCHER` | Akram |
 | **Commande fournisseur** | table `Commande`/`BonCommande` **(à trouver)** | — | **inconnue** | `A_CHERCHER` | Akram |
 
+## 5.bis MATRICE 7 COLONNES (taux mesurés + usage Sammy/Yahia)
+**Clarifications :** `Coutant` Z/Day ≈ **40 %** des lignes → marge partielle, `CALCULE_DAY_A_VALIDER`, fallback `Inventaire.mdb`, **Yahia seulement (pas Sammy au début)**. `Fournisseur` Z/Day ≈ **23 %** → source principale `Inventaire.mdb`, Z/Day garde le fournisseur réel si présent. Achats/réceptions **absents du Z journalier** → chercher `Achat/Commande/Reception/Fournisseur/PO/BonCommande/Entree/Mouvement`.
+**Présentation :** Sammy = CA, ventes, top produits/rayons, panier, heures, saisonnalité ; Yahia = tout Sammy + coût, marge, fournisseur, fiabilité, **taux de couverture coût/fournisseur**.
+
+| Information | Source principale | Source secondaire | Fiabilité | Usage Sammy | Usage Yahia | Commentaire |
+|--|--|--|--|--|--|--|
+| CA réel (HT) | Z/Day | — | OFFICIEL_Z (taxes/TTC exacts) | ✅ | ✅ | consigne nette à régler |
+| Total TTC | Z/Day (PM+RE+RO) | — | OFFICIEL_Z exact au cent | ✅ | ✅ | — |
+| TPS/TVQ | Z/Day (T1/T2) | — | OFFICIEL_Z exact au cent | — | ✅ | fiscal |
+| Paiement par mode | Z/Day (PM) | table Paiement | OFFICIEL_Z (net=TTC) | ✅ | ✅ | — |
+| Quantité vendue | Z/Day (Qte) | Transaction | fiable, à comparer | ✅ | ✅ | — |
+| Article vendu | Z/Day (CodeUPC) | Inventaire | OFFICIEL_Z | ✅ | ✅ | — |
+| Prix vendu | Z/Day (Prix) | — | OFFICIEL_Z très fiable | ✅ | ✅ | — |
+| Coûtant vendu | Z/Day (Coutant) | Inventaire | CALCULE_DAY_A_VALIDER (~40 %) | ❌ | ✅ | fallback catalogue |
+| Marge réelle | Z/Day (Prix−Coutant) | + Inventaire | CALCULE_DAY_A_VALIDER (~40 %) | ❌ | ✅ | poids = artefact |
+| Fournisseur | Inventaire (principal) | Z/Day (~23 %) | A_VALIDER | ❌ | ✅ | Day = réel si présent |
+| Stock | Inventaire | — | VOLUME_FIABLE | ❌ | ✅ | — |
+| Rotation | Transaction+Inventaire | — | VOLUME_FIABLE | ❌ | ✅ | — |
+| Dormant | Transaction+Inventaire | — | VOLUME_FIABLE | ❌ | ✅ | — |
+| Achat fournisseur | table Achat/Commande (à trouver) | Inventaire (coût) | A_CHERCHER | ❌ | ✅ | non confirmée |
+| Réception marchandise | table Reception (à trouver) | Transaction réception | A_CHERCHER | ❌ | ✅ | à localiser |
+| Commande fournisseur | table Commande/BonCommande (à trouver) | — | A_CHERCHER | ❌ | ✅ | à localiser |
+
 ## 6. Lecture simple (pour Sammy)
 - **Ventes / prix / taxes / paiements** = `Z/Day`, **fiable et officiel**.
 - **Coût / marge / fournisseur** = `Z/Day` quand présent (~40 % / ~23 %), **sinon catalogue `Inventaire.mdb`**.
