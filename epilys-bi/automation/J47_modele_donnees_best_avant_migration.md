@@ -84,10 +84,63 @@
 
 ---
 
-## B. `Inventaire Ob.mdb` — ⏳ EN ATTENTE DU SCHÉMA
-*(catalogue, coûts, fournisseurs, stock, départements — c'est ICI que vivent les vraies relations)*
-À documenter dès réception : tables, colonnes, types, `MSysRelationships`, clés produit↔fournisseur↔département↔stock, taux de remplissage.
-**Commande :** `mdb-schema "Inventaire Ob.mdb"` + `mdb-tables -1 "Inventaire Ob.mdb"` + export `MSysRelationships`.
+## B. `Inventaire.mdb` — CATALOGUE ✅ ANALYSÉ (OBRIEN 20260603, 30 Mo)
+
+**58 tables.** Clés : `Articles`, `Fournisseur`, `Commande`, `Departement`, `Historique`, `PrixSpeciaux`, `PaidOut`, `MixMatch`, `Employe`, `Retour`, `Service/Ingredients/Combo` (resto), `Tare` (poids).
+
+### B.1 `Articles` — catalogue (13 093 lignes, 12 979 actifs) — taux mesurés
+| Colonne | % rempli | Rôle |
+|---|--:|---|
+| NoArticle / Article | 100 / 99,8 % | clé + libellé |
+| Departement | 100 % | rayon |
+| PrixVente | 95,0 % | **prix catalogue** (≠ prix vendu) |
+| **Coutant** | **65,5 %** | **coût catalogue** |
+| CoutMoyen | 31,0 % | coût moyen pondéré |
+| **Fournisseur** (nom) | **68,6 %** | fournisseur principal |
+| **QteMain** (stock) | **91,7 %** | stock en main |
+| Actif | 99,1 % | actif/inactif |
+| DateVendu | 99,5 % | dernière vente → **dormant** |
+| DateRecu | 32,0 % | dernière réception |
+| FournisseurAutre1-4 (+Coutant) | — | **multi-fournisseur** par article |
+| NoFournisseur / CUP1 / QteEntrepot | <1 % | peu/pas utilisés |
+
+→ **`Inventaire` est la MEILLEURE source coût/fournisseur/stock** (66 / 69 / 92 %), **bien supérieure à `Day`** (cout 30-44 %, fournisseur 17-24 %). Badge `CATALOGUE_À_VALIDER` (prix catalogue ≠ prix réellement vendu).
+
+### B.2 `Fournisseur` (300) — contacts seulement
+Nom, adresse, tél, courriel, contact, terme, transporteur. **`TotalAchat` et `DernierAchat` = VIDES (0/300)** → **pas d'historique d'achat fournisseur** ici.
+
+### B.3 `Departement` (34) — référentiel + mapping comptable
+Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien grand livre), `Profit`, `Groupe`, `Cat`. Utile pour le **fiscal/compta** (mapping GL).
+
+### B.4 `Historique` (64 267) — par article, mensuel 202507→202606
+`QuantiteVendu` / `MontantVendu` (Σ ≈ 14,3 M$) = **utilisable pour tendances/rotation**. ⚠️ **`MontantAchete` = CORROMPU** (Σ = 23 **000 milliards**, 4 583 lignes aberrantes) → **inutilisable** (borne anti-aberration, même classe que CORRECTIONS).
+
+### B.5 ACHATS / COMMANDES / RÉCEPTIONS — **RÉSOLU (preuve)**
+- **`Commande`** (PO : `NoCommande, NoFournisseur, Commande`=commandé, `Recu`=reçu, `DateLiv`) existe **mais = 1 ligne stub** → **module bons d'achat NON utilisé**.
+- `Fournisseur.TotalAchat`/`DernierAchat` **vides** ; `Historique.MontantAchete` **corrompu**.
+- Seule trace réception = `Articles.QteAchete` (cumul) + `DateRecu` (32 %, dernière date), **pas de log transactionnel**.
+- **CONCLUSION : les achats fournisseurs ne sont PAS dans BEST.** → la source achats = **comptabilité (QuickBooks / factures fournisseurs)**, hors BEST. **Fin de la chasse « à chercher ».**
+
+> `InventaireOld.mdb` (14 Mo) = **ancien snapshot** (mêmes tables), non détaillé ici.
+
+---
+
+## E. MATRICE — Information → Source → Fiabilité → Usage
+
+| Information | Source principale | Source secondaire | Fiabilité | Sammy | Yahia | Commentaire |
+|---|---|---|---|:--:|:--:|---|
+| CA / TTC / taxes / paiements | **Z/Day** ou rapport mensuel BEST | — | `OFFICIEL` (au cent) | ✅ | ✅ | dollars officiels |
+| Prix réellement vendu | **Z/Day** (`Prix`) | — | `OFFICIEL` | ✅ | ✅ | — |
+| Coût article | **Inventaire `Articles.Coutant/CoutMoyen`** (66 %) | Z/Day `Coutant` (30-44 %) | `CATALOGUE_À_VALIDER` | ❌ | ✅ | prix catalogue ≠ vendu |
+| Marge | Z/Day `Prix` − Inventaire `Coutant` | — | `À_VALIDER` (coût partiel) | ❌ | ✅ | poids = artefact |
+| Fournisseur (article) | **Inventaire `Articles.Fournisseur`** (69 %) + `Fournisseur` (300) | Z/Day (17-24 %) | `À_VALIDER` | ❌ | ✅ | multi-fournisseur dispo |
+| Stock | **Inventaire `Articles.QteMain`** (92 %) | — | `VOLUME_FIABLE` | ❌ | ✅ | Akram |
+| Dormant / actif | Inventaire `Actif` + `DateVendu` | Transaction (0 vente N j) | `VOLUME_FIABLE` | ❌ | ✅ | argent immobilisé |
+| Tendance ventes article | Inventaire `Historique` (Qté/Montant Vendu) | Transaction (volumes) | `VOLUME_FIABLE` | (✅) | ✅ | 202507→202606 |
+| Rotation | Historique ventes ÷ `QteMain` | — | `VOLUME_FIABLE` | ❌ | ✅ | Akram |
+| Mapping comptable (GL) | Inventaire `Departement.GL` | — | utile fiscal | ❌ | ✅ | export compta |
+| **Achats fournisseurs** | **HORS BEST** (compta/QuickBooks/factures) | — | `A_CHERCHER_HORS_BEST` | ❌ | ✅ | `Commande` vide, `MontantAchete` corrompu |
+| Réception marchandise | Inventaire `DateRecu`+`QteAchete` (cumul, 32 %) | — | `INCOMPLET` | ❌ | ✅ | pas de log transactionnel |
 
 ## C. `Transaction Ob.mdb` — ⏳ EN ATTENTE DU SCHÉMA
 *(mouvements/historique long → VOLUMES/TENDANCES uniquement ; prix souvent 0 → jamais pour les $)*
@@ -97,8 +150,8 @@
 ---
 
 ## D. CE QU'IL RESTE À OBTENIR POUR FINIR L'ÉTAPE « COMPRENDRE »
-1. Schémas (texte) d'`Inventaire Ob.mdb` et `Transaction Ob.mdb` → compléter B et C.
-2. Carte des relations (ERD) une fois B/C remplis.
-3. Tables ACHATS / COMMANDES / RÉCEPTIONS / FOURNISSEUR : à localiser (absentes du Z journalier).
+1. Schéma (texte) de `Transaction.mdb` → compléter C (mdbtools à installer sur le Mac).
+2. Carte des relations (ERD) Inventaire (clés `Articles.NoFournisseur`↔`Fournisseur`, `Articles.Departement`↔`Departement`, `Historique.ArticleID`↔`Articles`).
+3. ✅ Tables ACHATS/RÉCEPTIONS : **résolu** — non utilisées dans BEST (cf. B.5) → source = comptabilité hors BEST.
 
 > **Règle d'or maintenue :** chaque chiffre = une source + un badge ; on ne mélange pas officiel, estimé et incomplet ; on ne migre une table qu'après l'avoir comprise.
