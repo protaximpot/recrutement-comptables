@@ -119,7 +119,7 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 - **`Commande`** (PO : `NoCommande, NoFournisseur, Commande`=commandé, `Recu`=reçu, `DateLiv`) existe **mais = 1 ligne stub** → **module bons d'achat NON utilisé**.
 - `Fournisseur.TotalAchat`/`DernierAchat` **vides** ; `Historique.MontantAchete` **corrompu**.
 - Seule trace réception = `Articles.QteAchete` (cumul) + `DateRecu` (32 %, dernière date), **pas de log transactionnel**.
-- **CONCLUSION : les achats fournisseurs ne sont PAS dans BEST.** → la source achats = **comptabilité (QuickBooks / factures fournisseurs)**, hors BEST. **Fin de la chasse « à chercher ».**
+- **CONCLUSION : achats fournisseurs NON EXPLOITABLES aujourd'hui depuis BEST.** La table `Commande` **existe** (`NoCommande, NoFournisseur, Date, NoArticle, CoutantBrut, Coutant, Commande, Recu, BO, DateLiv, Traite`) mais est **quasi vide → à valider** (pas un « absent » définitif). → source officielle achats = **comptabilité / factures fournisseurs (QuickBooks)**.
 
 > `InventaireOld.mdb` (14 Mo) = **ancien snapshot** (mêmes tables), non détaillé ici.
 
@@ -139,14 +139,13 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 | Tendance ventes article | Inventaire `Historique` (Qté/Montant Vendu) | Transaction (volumes) | `VOLUME_FIABLE` | (✅) | ✅ | 202507→202606 |
 | Rotation | Historique ventes ÷ `QteMain` | — | `VOLUME_FIABLE` | ❌ | ✅ | Akram |
 | Mapping comptable (GL) | Inventaire `Departement.GL` | — | utile fiscal | ❌ | ✅ | export compta |
-| **Achats fournisseurs** | **HORS BEST** (compta/QuickBooks/factures) | — | `A_CHERCHER_HORS_BEST` | ❌ | ✅ | `Commande` vide, `MontantAchete` corrompu |
+| **Achats fournisseurs** | **Comptabilité / factures (QuickBooks)** | BEST `Commande` (à valider) | `À_VALIDER` | ❌ | ✅ | `Commande` présente mais quasi vide ; `MontantAchete` corrompu |
 | Réception marchandise | Inventaire `DateRecu`+`QteAchete` (cumul, 32 %) | — | `INCOMPLET` | ❌ | ✅ | pas de log transactionnel |
 
-## C. `Transaction.mdb` — MOUVEMENTS ✅ SCHÉMA OBTENU (686 Mo)
-*(schéma via Codex/access_parser ; données via mdbtools)*
+## C. `Transaction.mdb` — MOUVEMENTS / STOCK DYNAMIQUE ✅ ANALYSÉ (686 Mo)
 
-**UNE seule table `Transaction`** (modèle plat, comme `Day`). Colonnes utiles : `Date`, `Article`, **`Type`** (type de mouvement), `Quantite`, `Prix`, `QteMain` (stock après mouvement), `Employe`, …
-- **Usage = VOLUMES / TENDANCES / HISTORIQUE LONG uniquement.** ⚠️ **`Prix` souvent 0 → JAMAIS pour les dollars** (prouvé J30 : des centaines de milliers de lignes VE à prix 0).
+**UNE seule table `Transaction`** (modèle plat, comme `Day`). Colonnes : `Date`, `Article`, `GrandeurCouleur`, **`Type`** (type de mouvement), `Quantite`, `Prix`, **`QteMain`, `QteEntrepot`, `QteReserve`, `QteCommande`** (stock dynamique après mouvement), `Employe`, `Note`, `DateExp`, `Change`.
+- **Usage = MOUVEMENTS / VOLUMES / TENDANCES / STOCK DYNAMIQUE / HISTORIQUE LONG uniquement.** ⚠️ **`Prix` souvent 0 → JAMAIS pour les dollars officiels** (prouvé J30 : des centaines de milliers de lignes VE à prix 0).
 - **Clé relation** : `Transaction.Article` ↔ `Inventaire.Articles.NoArticle`.
 - **`Type`** = à décoder (vente / retour / réception / ajustement) — c'est la clé pour isoler les mouvements ; à cartographier avant usage.
 - **Volumes déjà mesurés (J30)** : OBRIEN fév 763 830 / mars 706 879 / avril 147 123 (avril Access tronqué) → badge `VOLUME_FIABLE`, à comparer aux quantités Z.
