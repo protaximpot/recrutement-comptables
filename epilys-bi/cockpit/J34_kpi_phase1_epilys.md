@@ -54,11 +54,12 @@ marge_%         = profit_brut ÷ revenu_articles
 - **Marge affichée UNIQUEMENT si `Coutant` fiable** (renseigné, >0). Sinon afficher « coût manquant » et ne pas calculer de marge.
 - Rayons au **poids** (balances) : marges aberrantes (artefact) → isoler, ne pas inclure dans la marge globale présentée.
 - Taxes (T1/T2), paiements (PM), arrondissement (RO) **exclus** du profit.
+- **BADGE profit/marge :** `OFFICIEL_Z` si le **profit est repris/validé depuis le rapport Z** (à privilégier quand le Z fournit le profit) ; sinon `CALCULE_DAY_A_VALIDER` (calculé depuis `Day`, **uniquement si** Coutant fiable + échelle normalisée + codes exclus correctement + rayons au poids isolés). **Ne jamais présenter un profit Day comme officiel sans cette validation.**
 
 ### B.ter — CONSIGNE NETTE : À RÉSOUDRE EN PHASE 1 ⚠️
 - `Day` contient **consigne vendue** (dépôt à l'achat) ET **consigne crédit/retour** (remboursement bouteilles rapportées). Mon calcul brut « dept=CONSIGNE en Σ(Qte·Prix) » a donné 259,88 / 353,60 — alors que la consigne **nette** officielle est 257,26 / 337,10.
 - **C'est la cause probable du résidu CA de 2,62 $ / 16,51 $.**
-- Phase 1 : identifier le code/signe de la **consigne crédit** (cf. « CONSIGNE CREDIT: −1,99 » vu dans le Z mensuel 20-fév) et faire `consigne_nette = consigne_vendue − consigne_credit`.
+- Phase 1 : **netter selon les lignes du rapport Z** (CONSIGNE vendue, **DP** consigne, **RE** retour/crédit consigne — cf. « CONSIGNE CREDIT: −1,99 » du Z mensuel 20-fév), **pas seulement exclure `departement='CONSIGNE'`**. La consigne nette doit reproduire la ligne consigne du Z.
 - **Ne PAS annoncer un CA exact tant que la consigne nette n'est pas réglée.** (TPS/TVQ/TTC, eux, sont déjà exacts au cent.)
 
 ## C. MODULE ACHAT / PRICING
@@ -78,6 +79,16 @@ Cartes : CA vs même jour Hijri N-1 · profil intra-Ramadan (pic 10 derniers jou
 | Pâtisserie orientale | 800 $ | 2 500 $ (pic **Eid al-Fitr**) | +210 % | ~35 % | Montée fin Ramadan → Eid |
 | Thé / café | 600 $ | 1 100 $ | +83 % | ~30 % | Réassort modéré |
 *(Chiffres ILLUSTRATIFS — à remplacer par les vrais une fois la Phase 1 chargée.)*
+
+### D.ter — Vue SAMMY Ramadan/Eid (simple : KPI · lecture · action achat)
+| KPI | Lecture (simple) | Action achat |
+|--|--|--|
+| CA Ramadan vs an dernier | « +18 % vs même jour Hijri l'an dernier » | maintenir le réassort, c'est une bonne année |
+| Dattes / feuilles de brick | « explosent pendant le Ramadan » | commander en gros **2 semaines avant** |
+| Viande / agneau | « pic à l'**Eid al-Adha** » | pré-commande avant l'Eid al-Adha |
+| Pâtisserie / dattes | « pic à l'**Eid al-Fitr** » | monter le stock en fin de Ramadan |
+| Affluence du soir | « rush avant l'iftar puis après tarawih » | renforcer les caisses le soir |
+*(Sammy : pas de coûts ni de marges ici — seulement ventes, tendance et action.)*
 
 ## E. VARIATIONS (chaque axe)
 J-1 · J-7 · semaine · MoM · YoY · MTD/YTD · même période Hijri N-1 · moyenne 4 dern. sem. → variation **$ ET %** (marge en points).
@@ -116,6 +127,7 @@ CREATE TABLE IF NOT EXISTS epilys_z_stage.z_day_raw (
     coutant numeric, prix numeric, vendeur text, refmev text, fournisseur text, groupe text, mixmatch text,
     UNIQUE (file_md5, id)             -- ré-import du même fichier = pas de doublon
 );
+-- IDEMPOTENCE : avant import, REFUSER si file_md5 déjà présent (fichier déjà chargé). row_hash = dédoublonnage ligne.
 -- chargement (hors SQL) : pour chaque fichier, mdb-export Day -> ajouter source_file/file_md5/store/date_jour/row_hash -> \copy
 
 -- 2) Vue typée : applique SCALE (1 si mdb-export decimal ; 10000 si brut) + borne anti-aberration
@@ -150,12 +162,13 @@ FROM epilys_z_stage.v_z_day GROUP BY store, date_jour;
 
 ### H.5 — MINI-PLAN DE VALIDATION (obligatoire avant d'élargir)
 1. Importer **3 jours OBRIEN déjà contrôlés** : `20260101`, `20260201`, `20260506`.
-2. Comparer **CA / TPS / TVQ / TTC / consigne / paiements** aux valeurs officielles :
+2. Comparer **CA HT / TPS / TVQ / TTC / profit / paiements (par mode) / CA par département** aux valeurs officielles :
    - 01-01 : CA 180 193,55 · TPS 694,59 · TVQ 1 389,29 · TTC 182 534,71
    - 02-01 : CA 182 816,25 · TPS 707,90 · TVQ 1 415,61 · TTC 185 276,86
    - 05-06 : CA 16 057,00 · TPS 45,69 · TVQ 91,50 · TTC 16 213,69
-3. **Confirmer SCALE** (les scommes doivent tomber juste, pas ×10000). Régler la **consigne nette** jusqu'à CA exact.
-4. **Seulement après** : élargir aux 333 jours OBRIEN, puis traiter PIE-IX (§K).
+3. **Seuils :** taxes/TTC **au cent** ; CA/profit/départements → **tout écart doit être expliqué**. Si un écart n'est pas expliqué → marquer **`ECART_A_EXPLIQUER`** et **NE PAS publier**.
+4. **Confirmer SCALE** (les sommes doivent tomber juste, pas ×10000). Régler la **consigne nette** jusqu'à CA exact.
+5. **Seulement après** : élargir aux 333 jours OBRIEN, puis traiter PIE-IX (§K).
 
 ## I. ALERTES INTELLIGENTES
 Rupture probable · Surstock/dormant · Baisse de marge · Hausse retours · Produit vedette · Pré-événement (Ramadan/Eid dans X j → liste achats) · Écart caisse · Prix/marge aberrant · Donnée aberrante (borne).
