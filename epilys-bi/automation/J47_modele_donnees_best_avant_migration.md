@@ -106,8 +106,8 @@
 
 → **`Inventaire` est la MEILLEURE source coût/fournisseur/stock** (66 / 69 / 92 %), **bien supérieure à `Day`** (cout 30-44 %, fournisseur 17-24 %). Badge `CATALOGUE_À_VALIDER` (prix catalogue ≠ prix réellement vendu).
 
-### B.2 `Fournisseur` (300) — contacts seulement
-Nom, adresse, tél, courriel, contact, terme, transporteur. **`TotalAchat` et `DernierAchat` = VIDES (0/300)** → **pas d'historique d'achat fournisseur** ici.
+### B.2 `Fournisseur` (126) — contacts seulement
+Nom, adresse, tél, courriel, contact, terme, transporteur. **`TotalAchat` et `DernierAchat` = VIDES (0/126)** → **pas d'historique d'achat fournisseur** ici.
 
 ### B.3 `Departement` (34) — référentiel + mapping comptable
 Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien grand livre), `Profit`, `Groupe`, `Cat`. Utile pour le **fiscal/compta** (mapping GL).
@@ -133,7 +133,7 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 | Prix réellement vendu | **Z/Day** (`Prix`) | — | `OFFICIEL` | ✅ | ✅ | — |
 | Coût article | **Inventaire `Articles.Coutant/CoutMoyen`** (66 %) | Z/Day `Coutant` (30-44 %) | `CATALOGUE_À_VALIDER` | ❌ | ✅ | prix catalogue ≠ vendu |
 | Marge | Z/Day `Prix` − Inventaire `Coutant` | — | `À_VALIDER` (coût partiel) | ❌ | ✅ | poids = artefact |
-| Fournisseur (article) | **Inventaire `Articles.Fournisseur`** (69 %) + `Fournisseur` (300) | Z/Day (17-24 %) | `À_VALIDER` | ❌ | ✅ | multi-fournisseur dispo |
+| Fournisseur (article) | **Inventaire `Articles.Fournisseur`** (69 %) + `Fournisseur` (126) | Z/Day (17-24 %) | `À_VALIDER` | ❌ | ✅ | multi-fournisseur dispo |
 | Stock | Inventaire `Articles.QteMain` | — | `NON_FIABLE` (84 % négatif) | ❌ | ✅ | réception non saisie → inutilisable tel quel |
 | Dormant / actif | Inventaire `Actif` + `DateVendu` | Transaction (0 vente N j) | `VOLUME_FIABLE` | ❌ | ✅ | argent immobilisé |
 | Tendance ventes article | Inventaire `Historique` (Qté/Montant Vendu) | Transaction (volumes) | `VOLUME_FIABLE` | (✅) | ✅ | 202507→202606 |
@@ -151,7 +151,7 @@ Departement, Description, `NonAdd` (= CONSIGNE), `Taxe1..4`, **`GL`** (lien gran
 - **Volumes déjà mesurés (J30)** : OBRIEN fév 763 830 / mars 706 879 / avril 147 123 (avril Access tronqué) → badge `VOLUME_FIABLE`, à comparer aux quantités Z.
 
 > **Extraction (résout la « priorité Articles ») :** `access_parser` **plante** (overflow) sur `Articles`. **`mdbtools` (`mdb-export`) lit `Articles` proprement** — déjà fait ici : **13 093 lignes, tous les taux mesurés (B.1)**. ⇒ **Pipeline d'extraction = `mdbtools`**, pas access_parser. (Si un `.mdb` est réellement corrompu : Compact & Repair Access, ou export CSV depuis BEST.)
-> *Note versions :* le snapshot Mac de Codex montre 64 tables / Fournisseur 126 lignes ; le fichier analysé ici (uploadé) = 58 tables / Fournisseur 300 — **snapshots à dates différentes**, mêmes structures.
+> *Note versions :* le snapshot Mac de Codex montre 64 tables / Fournisseur 126 lignes ; le fichier uploadé = 58 tables / Fournisseur 126 (mon « 300 » initial = sur-comptage wc multiligne, corrigé). Staging Codex = Fournisseur 117 → écart 9 à réconcilier (même classe que Articles).
 
 ---
 
