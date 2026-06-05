@@ -196,3 +196,21 @@ Extraction : `mdb-export Inventaire.mdb Articles` → `EPILYS_OBRIEN_Articles.cs
 **Décision Codex/Yahia (validée) :** stock = NON FIABLE → **KPI rupture / surstock / valeur inventaire / rotation stock = BACKLOG** (jusqu'à mise en place/validation des réceptions) ; `QteMain` jamais utilisé comme stock réel. Coût/fournisseur/marge = **Yahia seulement, badge « catalogue à valider »**. Anomalies catalogue exportées : `EPILYS_OBRIEN_Articles_ANOMALIES.csv` (5 191 articles).
 
 > **Règle d'or maintenue :** chaque chiffre = une source + un badge ; on ne mélange pas officiel, estimé et incomplet ; on ne migre une table qu'après l'avoir comprise.
+
+---
+
+## H. ÉTAT STAGING FINAL — validé QA (2026-06-05)
+**Verdict : GO QA Yahia · NO-GO publication automatique.** Réserves CHAT **fermées par Codex** (vérif PG + ré-import mdbtools, pas juste documentées).
+
+| Table | Staging | Statut |
+|---|--:|---|
+| Articles | **13 093** (clé NoArticle unique, 0 vide, 0 doublon) | GO |
+| Fournisseur | **126** (était 117 → ré-importé mdbtools ; les 9 manquants étaient référencés par des articles = vraie perte corrigée) | GO |
+| Departement | 34 | GO |
+| Historique ventes utiles | **62 911** (était 59 988 → l'ancienne source PG avait **perdu des ventes mai/juin 2026** ; ré-importé mdbtools) | GO |
+| Transaction | 5 011 859 (volumes/tendances only) | GO |
+| Z Day détail | 449 080 | GO |
+
+**Garde-fous confirmés :** `QteMain` NON FIABLE (jamais stock), `Transaction.Prix` exclu des $, **aucune prod / Metabase / portail Sammy touché**.
+**Réserve ouverte (NON bloquante staging) :** la vue badges est **par objet/table**, pas encore **par champ** → à enrichir **avant** de construire les cockpits Yahia/Sammy.
+**Réf. :** `RAPPORT_QA_YAHIA_J47_STAGING_EPILYS_2026-06-05.md` (Codex, local).
