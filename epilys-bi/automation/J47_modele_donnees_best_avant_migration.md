@@ -214,3 +214,19 @@ Extraction : `mdb-export Inventaire.mdb Articles` → `EPILYS_OBRIEN_Articles.cs
 **Garde-fous confirmés :** `QteMain` NON FIABLE (jamais stock), `Transaction.Prix` exclu des $, **aucune prod / Metabase / portail Sammy touché**.
 **Réserve ouverte (NON bloquante staging) :** la vue badges est **par objet/table**, pas encore **par champ** → à enrichir **avant** de construire les cockpits Yahia/Sammy.
 **Réf. :** `RAPPORT_QA_YAHIA_J47_STAGING_EPILYS_2026-06-05.md` (Codex, local).
+
+---
+
+## I. GRILLE BADGES PAR CHAMP — validée QA (2026-06-05) ✅ GO INCONDITIONNEL
+Vue staging `epilys_stage.v_j47_field_badges` · **56 champs/KPI** classés · **9 `OFFICIEL_Z`** · **0 champ auto-publiable**.
+
+**Règle d'intégrité OFFICIEL_Z (figée, vérifiée) :**
+- `source_principale` des 9 `OFFICIEL_Z` = **Rapport Z officiel / TXT mensuel BEST parsé** (`v_z_officiel_entete`), **JAMAIS** `z_day_detail` brut.
+- Une période n'obtient `OFFICIEL_Z` **que si** elle est présente dans `v_z_officiel_entete` **ou** que le détail est **réconcilié/promu** ; sinon → `DETAIL_A_RECONCILIER`.
+- **Ne jamais calculer CA / TTC / factures depuis `z_day_detail` brut** (évite le faux « avril officiel » 525 k$ vs 2,47 M$).
+- `z_day_detail` = **source secondaire de réconciliation/contrôle uniquement**.
+
+**Visibilité :** Sammy = CA, TTC, factures, panier, paiements, ventes/rayons/articles/qté/caissiers/affluence/tendances (officiels). Yahia = + TPS/TVQ, coûts, marges, fournisseurs, GL, anomalies. **Aucun champ sensible visible Sammy.**
+**Exclus :** `VD`, CORRECTIONS, `Historique.MontantAchete` = `EXCLU` ; achats/réceptions = `HORS_BEST`. `Transaction.Prix` = `INTERDIT_DOLLAR` ; `QteMain` = `NON_FIABLE`.
+
+**Verdict : GO grille complète · NO-GO publication sans validation Yahia.** Réf. : `RAPPORT_QA_YAHIA_J47_STAGING_EPILYS_2026-06-05.md`.
